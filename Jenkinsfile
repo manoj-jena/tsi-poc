@@ -1,16 +1,38 @@
-#!groovy
 pipeline {
-	agent none
-  stages {
-  	stage('Maven Install') {
-    	agent {
-      	docker {
-        	image 'maven:3.5.0'
-        }
-      }
-      steps {
-      	sh 'mvn clean install'
-      }
-    }
-  }
+environment {
+imagename = "tsi-poc/tbank-0.0.1-SNAPSHOT.jar"
+registryCredential = 'dockerhubaccess'
+dockerImage = ''
+}
+agent any
+stages {
+stage('Cloning Git') {
+steps {
+git([url: 'https://github.com/manoj-jena/tsi-poc.git', branch: 'main', credentialsId: 'githubaccess'])
+}
+}
+stage('Building image') {
+steps{
+script {
+dockerImage = docker.build imagename
+}
+}
+}
+stage('Deploy Image') {
+steps{
+script {
+docker.withRegistry( '', registryCredential ) {
+dockerImage.push("$BUILD_NUMBER")
+dockerImage.push('latest')
+}
+}
+}
+}
+stage('Remove Unused docker image') {
+steps{
+sh "docker rmi $imagename:$BUILD_NUMBER"
+sh "docker rmi $imagename:latest"
+}
+}
+}
 }
